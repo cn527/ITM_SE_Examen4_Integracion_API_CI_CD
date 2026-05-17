@@ -1,11 +1,5 @@
 version: 0.2
 
- # Variables de entorno que deben ser configuradas en el proyecto CodeBuild en la consola  de AWS
- # AWS_ACCOUNT_ID: Tu ID de cuenta de AWS (ej: 534224643194)
- # AWS_DEFAULT_REGION: us-east-2
- # IMAGE_ REPO_NAME: api-calendariolaboral (nombre de tu repositorio ECR)
- # CONTAINER_NAME: api-calendariolaboral-container (nombre del contenedor de tu task-definition.json)
-
 phases:
   install:
     runtime-versions:
@@ -13,27 +7,36 @@ phases:
 
   pre_build:
     commands:
-      - echo Looging in to Amazon ECR...
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - echo "=== PRE_BUILD ==="
+      - echo "Region: $AWS_DEFAULT_REGION"
+      - echo "Account: $AWS_ACCOUNT_ID"
+      - echo "Repo: $IMAGE_REPO_NAME"
+      - echo "Container: $CONTAINER_NAME"
+      - docker --version
+      - aws --version
       - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:-latest}
-      - echo REPOSITORY_URI=$REPOSITORY_URI
-      - echo IMAGE_TAG=$IMAGE_TAG
+      - echo "REPOSITORY_URI=$REPOSITORY_URI"
+      - echo "IMAGE_TAG=$IMAGE_TAG"
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
   build:
     commands:
-      - echo Creando la imagen de la API...
-      - mvn clean install -DskipTests
-      - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
+      - echo "=== BUILD MAVEN ==="
+      - mvn clean package -DskipTests
+      - echo "=== VALIDANDO JAR ==="
+      - ls -lh presentacion/target/
+      - echo "=== BUILD DOCKER ==="
+      - docker build --no-cache -t $IMAGE_REPO_NAME:$IMAGE_TAG .
       - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $REPOSITORY_URI:$IMAGE_TAG
 
   post_build:
     commands:
-      - echo Colocando la imagen docker en Amazon ECR...
+      - echo "=== PUSH ECR ==="
       - docker push $REPOSITORY_URI:$IMAGE_TAG
-      - echo Guardar en el archivo de definiciones de la imagen
       - printf '[{"name":"%s","imageUri":"%s"}]' "$CONTAINER_NAME" "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
+      - cat imagedefinitions.json
 
 artifacts:
   files:
