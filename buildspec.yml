@@ -14,16 +14,16 @@ phases:
   pre_build:
     commands:
       - echo Looging in to Amazon ECR...
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com 
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
       - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:-latest}
       - echo REPOSITORY_URI=$REPOSITORY_URI
       - echo IMAGE_TAG=$IMAGE_TAG
-  
+
   build:
     commands:
-      - echo Creando la imagen de API...
+      - echo Creando la imagen de la API...
       - mvn clean install -DskipTests
       - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
       - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $REPOSITORY_URI:$IMAGE_TAG
@@ -32,10 +32,9 @@ phases:
     commands:
       - echo Colocando la imagen docker en Amazon ECR...
       - docker push $REPOSITORY_URI:$IMAGE_TAG
-      - echo Guardar en el archivo de definiciones de la imagen json 
-      - printf '[{"name":"%s","imageUri":"%s"}]'  "$CONTAINER_NAME" "$REPOSITORY_URY:$IMAGE_TAG" > imagedeinitions.json
-
+      - echo Guardar en el archivo de definiciones de la imagen
+      - printf '[{"name":"%s","imageUri":"%s"}]' "$CONTAINER_NAME" "$REPOSITORY_URI:$IMAGE_TAG" > imagedefinitions.json
 
 artifacts:
   files:
-    - imagedeinitions.json
+    - imagedefinitions.json
